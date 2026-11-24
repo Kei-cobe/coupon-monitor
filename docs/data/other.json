@@ -1,76 +1,9 @@
 {
   "bucket": "other",
   "label": "其他优惠",
-  "generated_at": "2026-11-24T19:06:02+00:00",
-  "count": 3,
-  "items": [
-    {
-      "fingerprint": "6d08c06bca91aff0a8c50226e9857fbf5acd0126d3f0498d50c028ae11c6f690",
-      "kind": "coupons",
-      "target": "拼多多",
-      "title": "拼多多 新电商开创者",
-      "summary": "微信扫码免费领取拼多多店铺 联系我们 客服&举报电话：021-53395288 商家热线：021-5339-5088 商家客服服务时间：8:00-20:30 消费者客服服务时间：8:00-23:00 消费者客服外呼号码显示：9541366（仅呼出，不支持呼入） 上海寻梦信息技术有限公司 入驻多多国际 校园招聘 ...",
-      "link": "https://www.pinduoduo.com/",
-      "categories": [
-        "free"
-      ],
-      "amount": null,
-      "price": null,
-      "start_date": null,
-      "end_date": null,
-      "collab": "",
-      "source": "www.pinduoduo.com",
-      "status": "unknown",
-      "official": true,
-      "buckets": [
-        "other"
-      ]
-    },
-    {
-      "fingerprint": "fe02da652248485ce7933ccbd4d2f4fa2389748f66a9cd86c3254386bfbb5363",
-      "kind": "coupons",
-      "target": "京东",
-      "title": "京东 - 又好又便宜",
-      "summary": "京东超市京东电器服饰美妆充值中心PLUS会员 京东生鲜京东国际司法拍卖红包惊喜全部 限时低价 去抢购 ¥22.55¥8.69¥3.69¥9.4¥13.2¥39.9¥129¥21.97¥20.58¥117.5 授权营销推广权限",
-      "link": "https://m.jd.com/",
-      "categories": [
-        "coupon"
-      ],
-      "amount": null,
-      "price": null,
-      "start_date": null,
-      "end_date": null,
-      "collab": "",
-      "source": "m.jd.com",
-      "status": "unknown",
-      "official": true,
-      "buckets": [
-        "other"
-      ]
-    },
-    {
-      "fingerprint": "4f1ef51ceb557031264a55bba3e10981599228ceabd72b5982918e93ef999c38",
-      "kind": "coupons",
-      "target": "淘宝",
-      "title": "Taobao Singapore | 淘宝",
-      "summary": "- Taobao Singapore. 淘宝让您随心淘超值商品，为您提供流行服饰、美妆洗护、3C数码、大小家电、家俬家居、箱包皮具、运动户外、五金工具、玩具等千万件热销好货。 新人首单享官方直邮运费立减¥30，抓紧下单吧！",
-      "link": "https://sg.world.taobao.com/",
-      "categories": [
-        "coupon"
-      ],
-      "amount": null,
-      "price": null,
-      "start_date": null,
-      "end_date": null,
-      "collab": "",
-      "source": "sg.world.taobao.com",
-      "status": "unknown",
-      "official": true,
-      "buckets": [
-        "other"
-      ]
-    }
-  ],
+  "generated_at": "2026-11-24T21:01:14+00:00",
+  "count": 0,
+  "items": [],
   "guides": {
     "美团": {
       "app_path": "美团 App → 我的 → 红包卡券；首页“神券节/天天神券”入口",
@@ -172,5 +105,6 @@
         "结算页核对尺码、库存、退换货规则后再支付。"
       ]
     }
-  }
+  },
+  "retention_hours": 24
 }
