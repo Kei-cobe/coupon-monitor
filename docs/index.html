@@ -358,7 +358,7 @@ async function pollRun(repo, before){
       setStatus("搜索完成，数据已更新。", true);
       return true;
     }
-    setStatus(`执行结束：${run.conclusion}。请到仓库 Actions 页面查看日志。`);
+    setStatus(`执行结束：${run.conclusion}。若日志含 quota 或 403，是博查搜索额度不足；其余情况请到仓库 Actions 页面查看日志。`);
     return false;
   }
   setStatus("等待超时，请稍后点“刷新”，或到 Actions 页面查看。");
