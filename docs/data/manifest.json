@@ -2,10 +2,35 @@
   "categories": {
     "delivery": {
       "label": "外卖券",
-      "updated_at": "2026-11-24T19:02:01+00:00",
+      "updated_at": "2026-11-24T19:06:02+00:00",
+      "count": 0
+    },
+    "groupbuy": {
+      "label": "团购券",
+      "updated_at": "2026-11-24T19:06:02+00:00",
+      "count": 2
+    },
+    "other": {
+      "label": "其他优惠",
+      "updated_at": "2026-11-24T19:06:02+00:00",
+      "count": 3
+    },
+    "brand_coupon": {
+      "label": "奶茶优惠券",
+      "updated_at": "2026-11-24T19:06:02+00:00",
+      "count": 0
+    },
+    "brand_activity": {
+      "label": "奶茶优惠活动",
+      "updated_at": "2026-11-24T19:06:02+00:00",
+      "count": 2
+    },
+    "brand_collab": {
+      "label": "奶茶联动",
+      "updated_at": "2026-11-24T19:06:02+00:00",
       "count": 0
     }
   },
-  "history_count": 0,
-  "history_updated_at": "2026-11-24T19:02:01+00:00"
+  "history_count": 7,
+  "history_updated_at": "2026-11-24T19:06:02+00:00"
 }
