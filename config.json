@@ -18,11 +18,19 @@
     "brand_queries": [
       "(优惠券 OR 免单 OR 买一送一 OR 第二杯半价 OR 低价)",
       "(联名 OR 联动 OR 合作) 活动"
-    ]
+    ],
+    "category_queries": {
+      "delivery": ["外卖 (红包 OR 优惠券 OR 满减) 领取", "外卖 (免单 OR 神券 OR 大额券)"],
+      "groupbuy": ["团购 (代金券 OR 套餐 OR 优惠券) 领取", "(团购 OR 到店) (买一送一 OR 低价 OR 秒杀)"],
+      "other": ["(优惠券 OR 满减 OR 红包) 领取", "(百亿补贴 OR 秒杀 OR 低价) 活动"]
+    },
+    "social_sites": ["xiaohongshu.com", "weibo.com", "douyin.com", "mp.weixin.qq.com"],
+    "social_queries_per_target": 1
   },
   "platforms": [
     {
       "name": "美团",
+      "categories": ["delivery", "groupbuy"],
       "enabled": true,
       "aliases": ["美团外卖", "美团买菜"],
       "official_url": "https://www.meituan.com",
@@ -37,6 +45,7 @@
     },
     {
       "name": "抖音",
+      "categories": ["groupbuy", "other"],
       "enabled": true,
       "aliases": ["抖省省", "抖音团购", "抖音外卖"],
       "official_url": "https://www.douyin.com",
@@ -51,6 +60,7 @@
     },
     {
       "name": "大众点评",
+      "categories": ["groupbuy"],
       "enabled": true,
       "aliases": ["点评"],
       "official_url": "https://www.dianping.com",
@@ -65,6 +75,7 @@
     },
     {
       "name": "拼多多",
+      "categories": ["other"],
       "enabled": true,
       "aliases": ["拼夕夕", "多多买菜"],
       "official_url": "https://www.pinduoduo.com",
@@ -79,6 +90,7 @@
     },
     {
       "name": "京东",
+      "categories": ["other"],
       "enabled": true,
       "aliases": ["京东商城", "京东PLUS"],
       "official_url": "https://www.jd.com",
@@ -93,6 +105,7 @@
     },
     {
       "name": "京东秒送",
+      "categories": ["delivery"],
       "enabled": true,
       "aliases": ["京东到家", "秒送"],
       "official_url": "https://www.jd.com",
@@ -107,6 +120,7 @@
     },
     {
       "name": "淘宝",
+      "categories": ["other"],
       "enabled": true,
       "aliases": ["天猫", "淘宝天猫"],
       "official_url": "https://www.taobao.com",
@@ -121,6 +135,7 @@
     },
     {
       "name": "淘宝闪购",
+      "categories": ["delivery"],
       "enabled": true,
       "aliases": ["闪购", "淘宝小时达"],
       "official_url": "https://www.taobao.com",
@@ -135,6 +150,7 @@
     },
     {
       "name": "饿了么",
+      "categories": ["delivery"],
       "enabled": true,
       "aliases": ["饿了么外卖"],
       "official_url": "https://www.ele.me",
@@ -149,6 +165,7 @@
     },
     {
       "name": "唯品会",
+      "categories": ["other"],
       "enabled": true,
       "aliases": ["唯品会特卖"],
       "official_url": "https://www.vip.com",

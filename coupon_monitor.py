@@ -359,6 +359,7 @@ class CouponMonitor:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(self.db_path)
         self.db.row_factory = sqlite3.Row
+        self.item_scopes: dict[str, set[str]] = {}
         self.db.executescript("""
             CREATE TABLE IF NOT EXISTS items (
                 fingerprint TEXT PRIMARY KEY,
@@ -485,12 +486,34 @@ class CouponMonitor:
         self.db.commit()
         return not exists
 
-    def search_target(self, kind: str, target: dict[str, Any], now: datetime) -> tuple[list[Activity], list[str]]:
+    def remember_scope(self, item: Activity, kind: str, target: dict[str, Any], category: str | None) -> None:
+        if kind != "coupons":
+            return
+        scopes = self.item_scopes.setdefault(item.fingerprint, set())
+        if category:
+            scopes.add(category)
+        else:
+            scopes.update(target.get("categories") or ["other"])
+
+    def search_target(self, kind: str, target: dict[str, Any], now: datetime,
+                      category: str | None = None) -> tuple[list[Activity], list[str]]:
         # 目标名放在查询首位：Bing RSS 只按首个词检索，OR 表达式会被截断。
         expression = target["name"]
-        query_terms = self.settings.get(
-            "platform_queries" if kind == "coupons" else "brand_queries", []
-        )
+        if kind == "coupons" and category:
+            query_terms = self.settings.get("category_queries", {}).get(category) or self.settings.get("platform_queries", [])
+        else:
+            query_terms = self.settings.get(
+                "platform_queries" if kind == "coupons" else "brand_queries", []
+            )
+        query_terms = list(query_terms)
+        # 追加小红书、微博、抖音、公众号等来源，按目标名与日期轮换，控制请求量。
+        sites = self.settings.get("social_sites") or []
+        social_count = min(int(self.settings.get("social_queries_per_target", 0)), len(sites))
+        if sites and social_count > 0:
+            rotation = (sum(ord(char) for char in target["name"]) + now.timetuple().tm_yday) % len(sites)
+            for step in range(social_count):
+                site = sites[(rotation + step) % len(sites)]
+                query_terms.append(f"(优惠 OR 免单 OR 买一送一 OR 联名) site:{site}")
         found: dict[str, Activity] = {}
         errors: list[str] = []
         delay = float(self.settings.get("request_delay_seconds", 0.35))
@@ -500,6 +523,7 @@ class CouponMonitor:
                 for raw in self.search(query):
                     item = make_activity(raw, kind, target, self.settings, now)
                     if item:
+                        self.remember_scope(item, kind, target, category)
                         old = found.get(item.fingerprint)
                         if not old or item.score > old.score:
                             was_new = old.is_new if old else False
@@ -529,6 +553,9 @@ class CouponMonitor:
 
     def execute(self, mode: str = "all", force: bool = False) -> None:
         now = utc_now()
+        if mode in ("delivery", "groupbuy", "other"):
+            self.run_kind("coupons", now, category=mode)
+            return
         kinds = ["coupons", "brands"] if mode == "all" else [mode]
         for kind in kinds:
             if not force and not self.is_due(kind, now):
@@ -544,12 +571,34 @@ class CouponMonitor:
     def kind_label(kind: str) -> str:
         return "平台优惠券" if kind == "coupons" else "奶茶/咖啡/甜点活动"
 
-    def run_kind(self, kind: str, now: datetime | None = None) -> None:
+    def social_queries(self, target: dict[str, Any], index: int) -> list[str]:
+        """为每个目标补充小红书、微博、抖音、公众号等来源，按日期轮换控制请求量。"""
+        sites = self.settings.get("social_sites") or []
+        count = int(self.settings.get("social_queries_per_target", 0))
+        if not sites or count <= 0:
+            return []
+        rotation = (index + utc_now().timetuple().tm_yday) % len(sites)
+        picked = [sites[(rotation + step) % len(sites)] for step in range(min(count, len(sites)))]
+        return [f'{target["name"]} (优惠 OR 免单 OR 买一送一 OR 联名) site:{site}' for site in picked]
+
+    def remember_scope(self, item: Activity, kind: str, target: dict[str, Any], category: str | None) -> None:
+        if kind != "coupons":
+            return
+        scopes = self.item_scopes.setdefault(item.fingerprint, set())
+        if category:
+            scopes.add(category)
+        else:
+            scopes.update(target.get("categories") or ["other"])
+
+    def run_kind(self, kind: str, now: datetime | None = None, category: str | None = None) -> None:
         now = now or utc_now()
         started = now
         config_key = "platforms" if kind == "coupons" else "brands"
         targets = [target for target in self.config.get(config_key, []) if target.get("enabled", True)]
-        print(f"\n=== 开始检查{self.kind_label(kind)}，共 {len(targets)} 个目标 ===")
+        if kind == "coupons" and category:
+            targets = [t for t in targets if category in (t.get("categories") or ["other"])]
+        label = self.kind_label(kind) + (f"/{category}" if category else "")
+        print(f"\n=== 开始检查{label}，共 {len(targets)} 个目标 ===")
         print("提示：公开搜索仅提供线索，不保证全量或实时；领取前请在官方 App/小程序复核。")
         all_items: dict[str, Activity] = {}
         errors: list[str] = []
@@ -557,7 +606,7 @@ class CouponMonitor:
         for index, target in enumerate(targets):
             print(f"\r检索 {index + 1}/{len(targets)}：{target['name']}", end="", flush=True)
             try:
-                items, target_errors = self.search_target(kind, target, now)
+                items, target_errors = self.search_target(kind, target, now, category=category)
                 errors.extend(target_errors)
                 for item in items:
                     old = all_items.get(item.fingerprint)
@@ -827,7 +876,7 @@ def build_parser() -> argparse.ArgumentParser:
     action.add_argument("--once", action="store_true", help="执行一次；仅运行已到期间隔的任务")
     action.add_argument("--loop", action="store_true", help="常驻运行，按间隔检查")
     parser.add_argument("--force", action="store_true", help="忽略间隔，强制搜索；不会重复通知旧活动")
-    parser.add_argument("--mode", choices=("all", "coupons", "brands"), default="all", help="搜索范围")
+    parser.add_argument("--mode", choices=("all", "coupons", "brands", "delivery", "groupbuy", "other"), default="all", help="搜索范围")
     parser.add_argument("--interval", type=int, help="覆盖平台券检查间隔（秒，默认 3600）")
     parser.add_argument("--brand-interval", type=int, help="覆盖品牌检查间隔（秒，默认 86400）")
     parser.add_argument("--history", nargs="?", const=20, type=int, help="查看活动历史，可选条数")
@@ -839,6 +888,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", default=str(script_dir / "config.json"), help="配置文件路径")
     parser.add_argument("--db", default=str(script_dir / "monitor.db"), help="SQLite 数据库路径")
     parser.add_argument("--export", metavar="JSON路径", help="运行后把当前有效线索导出为 JSON（供静态网页读取）")
+    parser.add_argument("--export-dir", metavar="目录", help="按分类导出最新结果、历史库和清单到该目录")
     return parser
 
 
@@ -893,6 +943,155 @@ def export_results(monitor: CouponMonitor, config: dict[str, Any], path: str) ->
     return payload
 
 
+BUCKET_LABELS = {
+    "delivery": "外卖券",
+    "groupbuy": "团购券",
+    "other": "其他优惠",
+    "brand_coupon": "奶茶优惠券",
+    "brand_activity": "奶茶优惠活动",
+    "brand_collab": "奶茶联动",
+}
+PLATFORM_BUCKETS = ("delivery", "groupbuy", "other")
+BRAND_BUCKETS = ("brand_coupon", "brand_activity", "brand_collab")
+
+
+def brand_buckets(categories: list[str]) -> list[str]:
+    cats = set(categories or [])
+    buckets: list[str] = []
+    if "collab" in cats:
+        buckets.append("brand_collab")
+    if cats & {"coupon", "big_coupon"}:
+        buckets.append("brand_coupon")
+    if cats & {"bogo", "second_half", "free", "low_price"}:
+        buckets.append("brand_activity")
+    return buckets or ["brand_activity"]
+
+
+def searched_buckets(mode: str) -> list[str]:
+    if mode in PLATFORM_BUCKETS:
+        return [mode]
+    if mode == "coupons":
+        return list(PLATFORM_BUCKETS)
+    if mode == "brands":
+        return list(BRAND_BUCKETS)
+    return list(PLATFORM_BUCKETS) + list(BRAND_BUCKETS)
+
+
+def export_bundle(monitor: CouponMonitor, config: dict[str, Any], data_dir: str, mode: str) -> dict[str, Any]:
+    """按六个分类导出最新结果，并维护可回看的历史库。"""
+    directory = Path(data_dir).expanduser()
+    directory.mkdir(parents=True, exist_ok=True)
+    now = utc_now()
+    now_text = isoformat(now)
+    buckets_searched = searched_buckets(mode)
+    guides = {
+        platform["name"]: {
+            "app_path": platform.get("app_path", ""),
+            "official_url": platform.get("official_url", ""),
+            "claim_steps": platform.get("claim_steps", []),
+        }
+        for platform in config.get("platforms", [])
+        if platform.get("enabled", True)
+    }
+    rows = monitor.db.execute("SELECT * FROM items ORDER BY score DESC, last_seen DESC").fetchall()
+    latest: dict[str, list[dict[str, Any]]] = {bucket: [] for bucket in buckets_searched}
+    found: list[dict[str, Any]] = []
+    for row in rows:
+        data = dict(row)
+        try:
+            categories = json.loads(data["categories"])
+        except (TypeError, json.JSONDecodeError):
+            categories = []
+        item = {
+            "fingerprint": data["fingerprint"],
+            "kind": data["kind"], "target": data["target"], "title": data["title"],
+            "summary": data["summary"], "link": data["link"], "categories": categories,
+            "amount": data["amount"], "price": data["price"],
+            "start_date": data["start_date"], "end_date": data["end_date"],
+            "collab": data["collab"], "source": data["source"],
+            "status": data["status"], "official": bool(data["official"]),
+        }
+        if data["kind"] == "coupons":
+            buckets = sorted(monitor.item_scopes.get(data["fingerprint"]) or []) or ["other"]
+        else:
+            buckets = brand_buckets(categories)
+        item["buckets"] = buckets
+        found.append(item)
+        if data["status"] not in ("active", "upcoming", "unknown"):
+            continue
+        for bucket in buckets:
+            if bucket in latest:
+                latest[bucket].append(item)
+
+    for bucket, items in latest.items():
+        payload = {
+            "bucket": bucket, "label": BUCKET_LABELS[bucket], "generated_at": now_text,
+            "count": len(items), "items": items[:200], "guides": guides,
+        }
+        (directory / f"{bucket}.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    history_path = directory / "history.json"
+    history: dict[str, Any] = {"items": []}
+    if history_path.exists():
+        try:
+            history = json.loads(history_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            history = {"items": []}
+    merged = {
+        entry.get("fingerprint"): entry
+        for entry in history.get("items", [])
+        if isinstance(entry, dict) and entry.get("fingerprint")
+    }
+    for item in found:
+        fingerprint = item["fingerprint"]
+        old = merged.get(fingerprint)
+        if old:
+            old.update({key: value for key, value in item.items() if key != "buckets"})
+            old["buckets"] = sorted(set(old.get("buckets", [])) | set(item["buckets"]))
+            old["last_seen"] = now_text
+        else:
+            entry = dict(item)
+            entry["first_seen"] = now_text
+            entry["last_seen"] = now_text
+            merged[fingerprint] = entry
+    cutoff = now - timedelta(hours=48)
+    kept: list[dict[str, Any]] = []
+    for entry in merged.values():
+        try:
+            seen = parse_datetime(entry.get("last_seen") or "")
+        except (TypeError, ValueError):
+            seen = None
+        if seen and seen >= cutoff:
+            kept.append(entry)
+    kept.sort(key=lambda entry: entry.get("last_seen") or "", reverse=True)
+    kept = kept[:500]
+    history_path.write_text(
+        json.dumps({"updated_at": now_text, "count": len(kept), "items": kept}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    manifest_path = directory / "manifest.json"
+    manifest: dict[str, Any] = {"categories": {}}
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            manifest = {"categories": {}}
+    manifest.setdefault("categories", {})
+    for bucket, items in latest.items():
+        manifest["categories"][bucket] = {
+            "label": BUCKET_LABELS[bucket], "updated_at": now_text, "count": len(items),
+        }
+    manifest["history_updated_at"] = now_text
+    manifest["history_count"] = len(kept)
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    print("已导出分类数据：" + "，".join(f"{BUCKET_LABELS[b]} {len(v)} 条" for b, v in latest.items()))
+    print(f"历史库 {len(kept)} 条（保留 48 小时，页面展示最近 24 小时）。")
+    return manifest
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -934,6 +1133,8 @@ def main(argv: list[str] | None = None) -> int:
                 monitor.execute(args.mode, force=args.force)
                 if args.export:
                     export_results(monitor, config, args.export)
+                if args.export_dir:
+                    export_bundle(monitor, config, args.export_dir, args.mode)
             else:
                 interactive_menu(monitor)
         except KeyboardInterrupt:

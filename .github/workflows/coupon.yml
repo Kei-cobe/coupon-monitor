@@ -3,14 +3,16 @@ name: 优惠搜索
 on:
   workflow_dispatch:
     inputs:
-      mode:
-        description: 搜索范围
+      scope:
+        description: 搜索范围（外卖券/团购券/其他优惠/奶茶全部/全部）
         required: true
         default: all
         type: choice
         options:
           - all
-          - coupons
+          - delivery
+          - groupbuy
+          - other
           - brands
 
 permissions:
@@ -34,14 +36,14 @@ jobs:
       - name: 执行搜索并导出
         env:
           BOCHA_API_KEY: ${{ secrets.BOCHA_API_KEY }}
-          MODE: ${{ inputs.mode }}
-        run: python coupon_monitor.py --once --force --mode "$MODE" --export docs/data/latest.json
+          SCOPE: ${{ inputs.scope }}
+        run: python coupon_monitor.py --once --force --mode "$SCOPE" --export-dir docs/data
 
       - name: 提交结果
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/data/latest.json
+          git add docs/data
           if git diff --cached --quiet; then
             echo "数据没有变化"
           else
