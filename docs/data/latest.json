@@ -1,7 +1,134 @@
 {
-  "generated_at": "2026-11-24T18:46:46+00:00",
-  "count": 0,
-  "items": [],
+  "generated_at": "2026-11-24T18:52:20+00:00",
+  "count": 7,
+  "items": [
+    {
+      "kind": "coupons",
+      "target": "拼多多",
+      "title": "拼多多 新电商开创者",
+      "summary": "微信扫码免费领取拼多多店铺 联系我们 客服&举报电话：021-53395288 商家热线：021-5339-5088 商家客服服务时间：8:00-20:30 消费者客服服务时间：8:00-23:00 消费者客服外呼号码显示：9541366（仅呼出，不支持呼入） 上海寻梦信息技术有限公司 入驻多多国际 校园招聘 ...",
+      "link": "https://www.pinduoduo.com/",
+      "categories": [
+        "free"
+      ],
+      "amount": null,
+      "price": null,
+      "start_date": null,
+      "end_date": null,
+      "collab": "",
+      "source": "www.pinduoduo.com",
+      "status": "unknown",
+      "official": true
+    },
+    {
+      "kind": "brands",
+      "target": "甜啦啦",
+      "title": "甜啦啦菜单 - 全系列产品价目表 | 新鲜水果 新鲜茶",
+      "summary": "甜啦啦2026年最新菜单，特色一桶水果茶10元/1000ml，清风茉白鲜奶茶8元，酸奶冰淇淋2元。主营鲜果茶、奶茶、冰淇淋、咖啡 ...",
+      "link": "https://www.tianlala.com/product/",
+      "categories": [
+        "free"
+      ],
+      "amount": null,
+      "price": null,
+      "start_date": null,
+      "end_date": null,
+      "collab": "",
+      "source": "www.tianlala.com",
+      "status": "unknown",
+      "official": false
+    },
+    {
+      "kind": "brands",
+      "target": "甜啦啦",
+      "title": "甜啦啦鲜果茶产品列表 - 甜啦啦官网 - tianlala.com",
+      "summary": "甜啦啦2026年最新菜单，特色一桶水果茶10元/1000ml，清风茉白鲜奶茶8元，酸奶冰淇淋3元。主营鲜果茶、奶茶、冰淇淋、咖啡 ...",
+      "link": "https://www.tianlala.com/bingxianguocha/",
+      "categories": [
+        "free"
+      ],
+      "amount": null,
+      "price": null,
+      "start_date": null,
+      "end_date": null,
+      "collab": "",
+      "source": "www.tianlala.com",
+      "status": "unknown",
+      "official": false
+    },
+    {
+      "kind": "coupons",
+      "target": "大众点评",
+      "title": "上海美食_生活_团购_旅游_电影_优惠券 - 大众点评网",
+      "summary": "热门商圈 静安寺商圈 陆家嘴商圈 新天地/马当路 八佰伴 地铁线 2号线 1号线 9号线 8号线 7号线 10号线 4号线 11号线 13号线 Hi， 收藏 0 团购券 0 结婚 全部 摄影 婚礼策划 婚宴 婚纱礼服 旅拍",
+      "link": "https://www.dianping.com/shanghai",
+      "categories": [
+        "coupon"
+      ],
+      "amount": null,
+      "price": null,
+      "start_date": null,
+      "end_date": null,
+      "collab": "",
+      "source": "www.dianping.com",
+      "status": "unknown",
+      "official": true
+    },
+    {
+      "kind": "coupons",
+      "target": "大众点评",
+      "title": "北京美食_生活_团购_旅游_电影_优惠券 - 大众点评网",
+      "summary": "热门商圈 三里屯/工体 望京 西单 五道口 中关村商圈 王府井/东单 崇文门 双井 地铁线 10号线 4号线大兴线 5号线 6号线 2号线 13号线 8号线 14号线 7号线 Hi， 收藏 0 团购券 0 结婚 全部 摄影 婚礼策划 婚宴 婚纱礼服 旅拍",
+      "link": "https://www.dianping.com/beijing",
+      "categories": [
+        "coupon"
+      ],
+      "amount": null,
+      "price": null,
+      "start_date": null,
+      "end_date": null,
+      "collab": "",
+      "source": "www.dianping.com",
+      "status": "unknown",
+      "official": true
+    },
+    {
+      "kind": "coupons",
+      "target": "京东",
+      "title": "京东 - 又好又便宜",
+      "summary": "京东超市京东电器服饰美妆充值中心PLUS会员 京东生鲜京东国际司法拍卖红包惊喜全部 限时低价 去抢购 ¥22.55¥8.69¥3.69¥9.4¥13.2¥39.9¥129¥21.97¥20.58¥117.5 授权营销推广权限",
+      "link": "https://m.jd.com/",
+      "categories": [
+        "coupon"
+      ],
+      "amount": null,
+      "price": null,
+      "start_date": null,
+      "end_date": null,
+      "collab": "",
+      "source": "m.jd.com",
+      "status": "unknown",
+      "official": true
+    },
+    {
+      "kind": "coupons",
+      "target": "淘宝",
+      "title": "Taobao Singapore | 淘宝",
+      "summary": "- Taobao Singapore. 淘宝让您随心淘超值商品，为您提供流行服饰、美妆洗护、3C数码、大小家电、家俬家居、箱包皮具、运动户外、五金工具、玩具等千万件热销好货。 新人首单享官方直邮运费立减¥30，抓紧下单吧！",
+      "link": "https://sg.world.taobao.com/",
+      "categories": [
+        "coupon"
+      ],
+      "amount": null,
+      "price": null,
+      "start_date": null,
+      "end_date": null,
+      "collab": "",
+      "source": "sg.world.taobao.com",
+      "status": "unknown",
+      "official": true
+    }
+  ],
   "guides": {
     "美团": {
       "app_path": "美团 App → 我的 → 红包卡券；首页“神券节/天天神券”入口",
