@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import concurrent.futures
 import hashlib
 import html
 import http.client
@@ -16,6 +17,7 @@ import socket
 import sqlite3
 import ssl
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -436,6 +438,7 @@ class CouponMonitor:
         self.db = sqlite3.connect(self.db_path)
         self.db.row_factory = sqlite3.Row
         self.item_scopes: dict[str, set[str]] = {}
+        self._lock = threading.Lock()
         self.db.executescript("""
             CREATE TABLE IF NOT EXISTS items (
                 fingerprint TEXT PRIMARY KEY,
@@ -602,14 +605,15 @@ class CouponMonitor:
                 for raw in self.search(query):
                     item = make_activity(raw, kind, target, self.settings, now)
                     if item:
-                        self.remember_scope(item, kind, target, category)
-                        old = found.get(item.fingerprint)
-                        if not old or item.score > old.score:
-                            was_new = old.is_new if old else False
-                            item.is_new = self.save_item(item, now) or was_new
-                            found[item.fingerprint] = item
-                        elif old:
-                            self.save_item(item, now)
+                        with self._lock:
+                            self.remember_scope(item, kind, target, category)
+                            old = found.get(item.fingerprint)
+                            if not old or item.score > old.score:
+                                was_new = old.is_new if old else False
+                                item.is_new = self.save_item(item, now) or was_new
+                                found[item.fingerprint] = item
+                            elif old:
+                                self.save_item(item, now)
             except (RuntimeError, ET.ParseError, ValueError) as exc:
                 errors.append(f"{target['name']}：{exc}")
             if index + 1 < len(query_terms):
@@ -681,22 +685,30 @@ class CouponMonitor:
         print("提示：公开搜索仅提供线索，不保证全量或实时；领取前请在官方 App/小程序复核。")
         all_items: dict[str, Activity] = {}
         errors: list[str] = []
-        delay = float(self.settings.get("request_delay_seconds", 0.35))
-        for index, target in enumerate(targets):
-            print(f"\r检索 {index + 1}/{len(targets)}：{target['name']}", end="", flush=True)
+        workers = max(1, int(self.settings.get("search_workers", 4)))
+        done = 0
+
+        def work(target: dict[str, Any]) -> tuple[list[Activity], list[str], str]:
             try:
                 items, target_errors = self.search_target(kind, target, now, category=category)
-                errors.extend(target_errors)
-                for item in items:
-                    old = all_items.get(item.fingerprint)
-                    if not old or item.score > old.score:
-                        all_items[item.fingerprint] = item
-                    elif item.is_new:
-                        old.is_new = True
+                return items, target_errors, ""
             except Exception as exc:  # 隔离单个配置/数据源异常，保留其他结果
-                errors.append(f"{target.get('name', '未知目标')}：{exc}")
-            if index + 1 < len(targets):
-                time.sleep(delay)
+                return [], [], f"{target.get('name', '未知目标')}：{exc}"
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+            for found_items, target_errors, failure in pool.map(work, targets):
+                done += 1
+                with self._lock:
+                    print(f"\r检索 {done}/{len(targets)}", end="", flush=True)
+                    if failure:
+                        errors.append(failure)
+                    errors.extend(target_errors)
+                    for item in found_items:
+                        old = all_items.get(item.fingerprint)
+                        if not old or item.score > old.score:
+                            all_items[item.fingerprint] = item
+                        elif item.is_new:
+                            old.is_new = True
         print("\r" + " " * 60 + "\r", end="")
         items = sorted(
             all_items.values(),

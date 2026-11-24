@@ -10,6 +10,7 @@
     "request_retries": 2,
     "retry_backoff_seconds": 0.8,
     "request_delay_seconds": 0.4,
+    "search_workers": 4,
     "scheduler_poll_seconds": 60,
     "console_limit": 30,
     "search_rss_url": "https://www.bing.com/search?format=rss&q=",
