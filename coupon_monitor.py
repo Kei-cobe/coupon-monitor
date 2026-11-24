@@ -439,6 +439,10 @@ class CouponMonitor:
         self.db.row_factory = sqlite3.Row
         self.item_scopes: dict[str, set[str]] = {}
         self._lock = threading.Lock()
+        self.fallback_used = False
+        self.fallback_reason = ""
+        self.total_items = 0
+        self.total_errors = 0
         self.db.executescript("""
             CREATE TABLE IF NOT EXISTS items (
                 fingerprint TEXT PRIMARY KEY,
@@ -495,8 +499,19 @@ class CouponMonitor:
             try:
                 with urllib.request.urlopen(request, timeout=timeout) as response:
                     return response.read()
+            except urllib.error.HTTPError as exc:
+                detail = ""
+                try:
+                    detail = exc.read().decode("utf-8", "ignore")[:220]
+                except Exception:
+                    pass
+                last_error = RuntimeError(f"HTTP {exc.code}：{detail or exc.reason}")
+                if 400 <= exc.code < 500:
+                    break  # 鉴权/额度等客户端错误，重试无意义
+                if attempt < retries:
+                    time.sleep(backoff * (2 ** attempt))
             except (
-                urllib.error.URLError, urllib.error.HTTPError, socket.timeout,
+                urllib.error.URLError, socket.timeout,
                 TimeoutError, http.client.HTTPException, ssl.SSLError,
             ) as exc:
                 last_error = exc
@@ -505,11 +520,21 @@ class CouponMonitor:
         raise RuntimeError(f"请求失败：{last_error}")
 
     def search(self, query: str) -> list[dict[str, str]]:
-        """优先使用配置的中文搜索 API；未配置时使用免密钥的 Bing RSS。"""
+        """优先使用博查；额度不足或请求失败时回落到免密钥的 Bing RSS。"""
         api_key = os.environ.get("BOCHA_API_KEY", "").strip()
-        if api_key:
-            return self.search_bocha(query, api_key)
         base = self.settings.get("search_rss_url", "https://www.bing.com/search?format=rss&q=")
+        if api_key:
+            try:
+                return self.search_bocha(query, api_key)
+            except (RuntimeError, ValueError) as exc:
+                if not self.settings.get("bing_fallback", True):
+                    raise
+                self.fallback_used = True
+                self.fallback_reason = str(exc)
+                try:
+                    return parse_rss(self._request(base + urllib.parse.quote(query)))
+                except (RuntimeError, ET.ParseError):
+                    raise exc
         return parse_rss(self._request(base + urllib.parse.quote(query)))
 
     def search_bocha(self, query: str, api_key: str) -> list[dict[str, str]]:
@@ -735,6 +760,10 @@ class CouponMonitor:
         )
         self.db.commit()
         print(f"[完成] 本次相关线索 {len(items)} 条，新记录 {len(new_items)} 条，错误 {len(errors)} 个。")
+        self.total_items += len(items)
+        self.total_errors += len(errors)
+        if self.fallback_used:
+            print(f"[降级] 博查搜索不可用，本轮部分查询改用 Bing RSS：{self.fallback_reason}")
         for error in errors[:8]:
             print(f"  [错误] {error}")
         if len(errors) > 8:
@@ -1270,6 +1299,9 @@ def main(argv: list[str] | None = None) -> int:
                 if args.export:
                     export_results(monitor, config, args.export)
                 if args.export_dir:
+                    if monitor.total_items == 0 and (monitor.total_errors or monitor.fallback_used):
+                        print("[中止] 本轮没有有效结果且搜索出现异常/降级，保留线上已有数据，不覆盖。")
+                        sys.exit(2)
                     export_bundle(monitor, config, args.export_dir, args.mode)
             else:
                 interactive_menu(monitor)
