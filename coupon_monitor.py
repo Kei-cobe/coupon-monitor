@@ -588,9 +588,18 @@ class CouponMonitor:
                 "platform_queries" if kind == "coupons" else "brand_queries", []
             )
         query_terms = list(query_terms)
+        if kind == "brands":
+            # 品牌数量多，主查询只保留第一条，社媒查询按品牌轮换，避免超时和触发限流。
+            main_limit = int(self.settings.get("brand_query_limit", 1))
+            query_terms = query_terms[:max(1, main_limit)]
         # 追加小红书、微博、抖音、公众号等来源，按目标名与日期轮换，控制请求量。
         sites = self.settings.get("social_sites") or []
         social_count = min(int(self.settings.get("social_queries_per_target", 0)), len(sites))
+        if kind == "brands":
+            every = max(1, int(self.settings.get("brand_social_every", 4)))
+            marker = sum(ord(char) for char in target["name"]) + now.timetuple().tm_yday
+            if marker % every:
+                social_count = 0
         if sites and social_count > 0:
             rotation = (sum(ord(char) for char in target["name"]) + now.timetuple().tm_yday) % len(sites)
             for step in range(social_count):
