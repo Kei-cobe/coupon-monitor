@@ -7,8 +7,8 @@
     },
     "groupbuy": {
       "label": "团购券",
-      "updated_at": "2026-11-24T19:06:02+00:00",
-      "count": 2
+      "updated_at": "2026-11-24T19:28:32+00:00",
+      "count": 38
     },
     "other": {
       "label": "其他优惠",
@@ -31,6 +31,6 @@
       "count": 0
     }
   },
-  "history_count": 77,
-  "history_updated_at": "2026-11-24T19:17:22+00:00"
+  "history_count": 116,
+  "history_updated_at": "2026-11-24T19:28:32+00:00"
 }
