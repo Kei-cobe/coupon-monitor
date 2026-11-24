@@ -2,6 +2,8 @@
   "settings": {
     "big_coupon_threshold": 10,
     "low_price_threshold": 10,
+    "freshness": "oneDay",
+    "retention_hours": 24,
     "coupon_interval_seconds": 3600,
     "brand_interval_seconds": 86400,
     "timeout_seconds": 15,

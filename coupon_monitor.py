@@ -264,6 +264,68 @@ def collaboration(text: str, names: Iterable[str]) -> str:
     return "、".join(partners[:2])
 
 
+def extract_claims(text: str) -> str:
+    """从原文提取可执行的领取线索：搜索口令、兑换码、活动入口。"""
+    claims: list[str] = []
+
+    def add(value: str) -> None:
+        value = value.strip(" ，。；;、")
+        if value and value not in claims and len(claims) < 3:
+            claims.append(value)
+
+    search_pattern = re.compile(
+        r"(?P<app>淘宝闪购|淘宝|天猫|京东秒送|京东|美团外卖|美团|饿了么|拼多多|抖音|大众点评|口碑)?"
+        r"\s*(?:APP|App|app|小程序|客户端)?\s*(?:内|里|中|首页)?\s*"
+        r"(?:搜索|搜|输入|搜一搜)\s*[【\[“\"']?(?P<code>[A-Za-z0-9一-龥]{2,24})[】\]”\"']?"
+    )
+    for match in search_pattern.finditer(text):
+        code = match.group("code").strip("【】[]“”\"'")
+        if code in {"活动", "优惠券", "红包", "领券", "免单", "外卖", "奶茶"}:
+            continue
+        app = match.group("app") or ""
+        add(f"{app + ' ' if app else ''}搜索【{code}】")
+
+    for match in re.finditer(
+        r"(?:口令|邀请码|兑换码|优惠码|密令)\s*(?:是|为|[:：])?\s*[【\[“\"']?([A-Za-z0-9￥$一-龥]{3,24})[】\]”\"']?",
+        text,
+    ):
+        add(f"口令/兑换码：{match.group(1)}")
+
+    for match in re.finditer(
+        r"(?:活动入口|领取入口|领券入口|抽奖入口|参与入口)\s*(?:是|为|[:：])?\s*[【\[“\"']?([^，。；;！!？?\s】\]”\"']{2,40})",
+        text,
+    ):
+        add(f"活动入口：{match.group(1)}")
+    return "；".join(claims)
+
+
+def sanitize_dates(start: date | None, end: date | None, published: datetime | None, now: datetime) -> tuple[date | None, date | None]:
+    """剔除不合理日期：超过一年后的日期，以及老文章里被错误顺延到来年的日期。"""
+    today = now.astimezone().date()
+    horizon = today + timedelta(days=366)
+    if start and start > horizon:
+        start = None
+    if end and end > horizon:
+        end = None
+    if published:
+        limit = published.astimezone().date() + timedelta(days=400)
+        if start and start > limit:
+            start = None
+        if end and end > limit:
+            end = None
+    return start, end
+
+
+def is_navigation_page(title: str, link: str) -> bool:
+    """过滤站点导航页、频道首页等不含具体活动的页面。"""
+    if title.count("_") >= 2 or title.count(" | ") >= 2:
+        return True
+    path = urllib.parse.urlsplit(link).path
+    if path in {"", "/"} and not re.search(r"\d", title):
+        return True
+    return bool(re.search(r"(首页|官网|官方网站|频道页)$", title) and len(title) < 30)
+
+
 @dataclass
 class Activity:
     fingerprint: str
@@ -285,6 +347,7 @@ class Activity:
     score: int
     first_seen: datetime
     is_new: bool = False
+    claim: str = ""
 
 
 def activity_score(categories: list[str], status: str, official: bool, published: datetime | None, now: datetime) -> int:
@@ -331,9 +394,22 @@ def make_activity(raw: dict[str, str], kind: str, target: dict[str, Any], settin
     if not categories:
         return None
 
-    start, end = extract_dates(text, now)
-    status = activity_status(start, end, now)
     published = published_datetime(raw.get("published", ""))
+    claim = extract_claims(text)
+    start, end = sanitize_dates(*extract_dates(text, now), published, now)
+    status = activity_status(start, end, now)
+    today = now.astimezone().date()
+    still_valid = bool(end and end >= today)
+    evergreen = bool(claim) and (end is None or still_valid)
+    if status == "expired":
+        return None
+    if published and now - published > timedelta(days=1) and not evergreen and not still_valid:
+        return None
+    if is_navigation_page(title, link):
+        return None
+    specific = bool(claim or amount is not None or price is not None or start or end)
+    if not specific and set(categories) <= {"coupon"}:
+        return None
     source = (urllib.parse.urlsplit(link).hostname or "未知来源").lower()
     official_domains = [domain.lower() for domain in target.get("official_domains", [])]
     official = any(source == domain or source.endswith("." + domain) for domain in official_domains)
@@ -347,7 +423,7 @@ def make_activity(raw: dict[str, str], kind: str, target: dict[str, Any], settin
         start_date=start, end_date=end, collab=collaboration(text, names) if "collab" in categories else "",
         source=source, status=status, official=official, published_at=published,
         score=activity_score(categories, status, official, published, now),
-        first_seen=now,
+        first_seen=now, claim=claim,
     )
 
 
@@ -434,7 +510,10 @@ class CouponMonitor:
         return parse_rss(self._request(base + urllib.parse.quote(query)))
 
     def search_bocha(self, query: str, api_key: str) -> list[dict[str, str]]:
-        payload = json.dumps({"query": query, "summary": True, "count": 10}).encode("utf-8")
+        payload = json.dumps({
+            "query": query, "summary": True, "count": 10,
+            "freshness": self.settings.get("freshness", "oneDay"),
+        }).encode("utf-8")
         raw = self._request(
             "https://api.bochaai.com/v1/web-search", data=payload,
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
@@ -665,6 +744,8 @@ class CouponMonitor:
                 details.append(f"日期 {item.start_date or '待确认'} 至 {item.end_date or '待确认'}")
             if item.collab:
                 details.append(f"联动方线索：{item.collab}")
+            if item.claim:
+                details.append(f"领取线索：{item.claim}")
             details.append(f"来源：{item.source}{'（官方域名）' if item.official else '（第三方，需核验）'}")
             print("   " + "；".join(details))
             if item.summary:
@@ -1010,7 +1091,11 @@ def export_bundle(monitor: CouponMonitor, config: dict[str, Any], data_dir: str,
             "start_date": data["start_date"], "end_date": data["end_date"],
             "collab": data["collab"], "source": data["source"],
             "status": data["status"], "official": bool(data["official"]),
+            "claim": extract_claims(f"{data['title']} {data['summary']}"),
         }
+        item["evergreen"] = bool(item["claim"]) and (
+            not data["end_date"] or data["end_date"] >= now.astimezone().date().isoformat()
+        )
         if data["kind"] == "coupons":
             buckets = sorted(monitor.item_scopes.get(data["fingerprint"]) or []) or ["other"]
         else:
@@ -1056,21 +1141,47 @@ def export_bundle(monitor: CouponMonitor, config: dict[str, Any], data_dir: str,
             entry["first_seen"] = now_text
             entry["last_seen"] = now_text
             merged[fingerprint] = entry
-    cutoff = now - timedelta(hours=48)
+    retention_hours = int(config.get("settings", {}).get("retention_hours", 24))
+    cutoff = now - timedelta(hours=retention_hours)
+    today_text = now.astimezone().date().isoformat()
     kept: list[dict[str, Any]] = []
     for entry in merged.values():
         try:
             seen = parse_datetime(entry.get("last_seen") or "")
         except (TypeError, ValueError):
             seen = None
-        if seen and seen >= cutoff:
-            kept.append(entry)
+        if not seen or seen < cutoff:
+            if not entry.get("evergreen"):
+                continue
+        end_date = entry.get("end_date") or ""
+        if end_date and end_date < today_text and not entry.get("evergreen"):
+            continue
+        kept.append(entry)
     kept.sort(key=lambda entry: entry.get("last_seen") or "", reverse=True)
     kept = kept[:500]
     history_path.write_text(
         json.dumps({"updated_at": now_text, "count": len(kept), "items": kept}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+    # 分类文件直接展示“最近 24 小时记录 + 长期有效线索”，不再单独区分回看视图。
+    latest = {bucket: [] for bucket in BUCKET_LABELS}
+    for entry in kept:
+        if entry.get("status") not in ("active", "upcoming", "unknown"):
+            continue
+        for bucket in entry.get("buckets", []):
+            if bucket in latest:
+                latest[bucket].append(entry)
+    for bucket, items in latest.items():
+        items.sort(key=lambda entry: entry.get("last_seen") or "", reverse=True)
+        payload = {
+            "bucket": bucket, "label": BUCKET_LABELS[bucket], "generated_at": now_text,
+            "count": len(items), "items": items[:200], "guides": guides,
+            "retention_hours": retention_hours,
+        }
+        (directory / f"{bucket}.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     manifest_path = directory / "manifest.json"
     manifest: dict[str, Any] = {"categories": {}}
@@ -1081,14 +1192,18 @@ def export_bundle(monitor: CouponMonitor, config: dict[str, Any], data_dir: str,
             manifest = {"categories": {}}
     manifest.setdefault("categories", {})
     for bucket, items in latest.items():
+        previous = manifest["categories"].get(bucket, {})
         manifest["categories"][bucket] = {
-            "label": BUCKET_LABELS[bucket], "updated_at": now_text, "count": len(items),
+            "label": BUCKET_LABELS[bucket],
+            "updated_at": now_text if bucket in buckets_searched else previous.get("updated_at", now_text),
+            "count": len(items),
         }
-    manifest["history_updated_at"] = now_text
+    manifest["generated_at"] = now_text
     manifest["history_count"] = len(kept)
+    manifest["retention_hours"] = retention_hours
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    print("已导出分类数据：" + "，".join(f"{BUCKET_LABELS[b]} {len(v)} 条" for b, v in latest.items()))
-    print(f"历史库 {len(kept)} 条（保留 48 小时，页面展示最近 24 小时）。")
+    print("已导出分类记录：" + "，".join(f"{BUCKET_LABELS[b]} {len(v)} 条" for b, v in latest.items()))
+    print(f"记录库 {len(kept)} 条：仅保留最近 {retention_hours} 小时，长期有效的领取口令/入口除外。")
     return manifest
 
 
