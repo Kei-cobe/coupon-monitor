@@ -17,20 +17,20 @@
     },
     "brand_coupon": {
       "label": "奶茶优惠券",
-      "updated_at": "2026-11-24T19:06:02+00:00",
-      "count": 0
+      "updated_at": "2026-11-24T19:41:44+00:00",
+      "count": 214
     },
     "brand_activity": {
       "label": "奶茶优惠活动",
-      "updated_at": "2026-11-24T19:06:02+00:00",
-      "count": 2
+      "updated_at": "2026-11-24T19:41:44+00:00",
+      "count": 305
     },
     "brand_collab": {
       "label": "奶茶联动",
-      "updated_at": "2026-11-24T19:06:02+00:00",
-      "count": 0
+      "updated_at": "2026-11-24T19:41:44+00:00",
+      "count": 228
     }
   },
-  "history_count": 116,
-  "history_updated_at": "2026-11-24T19:28:32+00:00"
+  "history_count": 500,
+  "history_updated_at": "2026-11-24T19:41:44+00:00"
 }
