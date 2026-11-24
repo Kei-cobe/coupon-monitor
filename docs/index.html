@@ -64,16 +64,16 @@ details ol{margin:6px 0 0 18px;padding:0}
   </header>
 
   <section class="panel" id="setup" hidden>
-    <p class="hint">填写仓库后，这个页面可以直接触发 GitHub Actions 搜索，结果会显示在下方。令牌只保存在你本机浏览器，不会写进仓库。</p>
-    <label for="repo">仓库（owner/repo）</label>
-    <input id="repo" placeholder="yourname/coupon-monitor" autocomplete="off">
+    <p class="hint">仓库由网址自动识别，无需填写。这里只需要粘贴令牌，令牌只保存在你本机浏览器，不会写进仓库。</p>
     <label for="token">访问令牌</label>
-    <input id="token" type="password" placeholder="github_pat_..." autocomplete="off">
-    <p class="hint">建议用 Fine-grained PAT：仅选择这个仓库，权限只勾 Actions 的 Read and write，有效期设 7 天。使用后可随时删除令牌。</p>
+    <input id="token" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+           style="font-family:monospace" placeholder="粘贴 github_pat_... 或 ghp_...">
+    <p class="hint" id="tokenState">当前状态：未保存</p>
     <div class="actions">
-      <button class="primary" id="btnSave">保存</button>
+      <button class="primary" id="btnSave">保存并验证</button>
       <button id="btnClear">清除令牌</button>
     </div>
+    <p class="hint">建议用 Fine-grained PAT：仅选择本仓库，权限只勾 Actions 的 Read and write，有效期设 7 天。保存后会立刻调用 GitHub 验证，无效会明确提示。</p>
   </section>
 
   <div class="actions">
@@ -123,9 +123,37 @@ const CAT_LABEL = {free:"免单/免费",bogo:"买一送一",second_half:"第二�
   big_coupon:"大额券",low_price:"个位数低价",collab:"联名/联动",coupon:"优惠券/红包"};
 let data = null, busy = false;
 
-function cfg(){
-  return {repo:(localStorage.getItem("coupon_repo")||"").trim(),
-          token:(localStorage.getItem("coupon_token")||"").trim()};
+const memoryStore = {};
+const store = {
+  get(key){
+    try{ return localStorage.getItem(key) || sessionStorage.getItem(key) || memoryStore[key] || ""; }
+    catch(e){ return memoryStore[key] || ""; }
+  },
+  set(key, value){
+    memoryStore[key] = value;
+    try{ localStorage.setItem(key, value); return; }catch(e){}
+    try{ sessionStorage.setItem(key, value); }catch(e){}
+  },
+  remove(key){
+    delete memoryStore[key];
+    try{ localStorage.removeItem(key); }catch(e){}
+    try{ sessionStorage.removeItem(key); }catch(e){}
+  }
+};
+function cfg(){ return {token: store.get("coupon_token").trim()}; }
+function detectRepo(){
+  const match = location.hostname.toLowerCase().match(/^([\w-]+)\.github\.io$/);
+  if(match){
+    const part = location.pathname.split("/").filter(Boolean)[0];
+    if(part) return match[1] + "/" + part;
+  }
+  return "Kei-cobe/coupon-monitor";
+}
+function updateTokenState(){
+  const token = cfg().token;
+  $("#tokenState").textContent = token
+    ? `当前状态：已保存，长度 ${token.length}，仅保存在本机`
+    : "当前状态：未保存";
 }
 function setStatus(text, ok){
   $("#status").textContent = text;
@@ -205,11 +233,11 @@ async function loadData(){
     const res = await fetch("./data/latest.json?_=" + Date.now(), {cache:"no-store"});
     if(!res.ok) throw new Error("HTTP " + res.status);
     data = await res.json();
-    localStorage.setItem("coupon_cache", JSON.stringify(data));
+    store.set("coupon_cache", JSON.stringify(data));
     render();
     setStatus(data.count ? `共有 ${data.count} 条线索。` : "数据文件为空，先执行一次搜索。", true);
   }catch(e){
-    const cached = localStorage.getItem("coupon_cache");
+    const cached = store.get("coupon_cache");
     if(cached){
       data = JSON.parse(cached);
       render();
@@ -270,10 +298,12 @@ async function pollRun(repo, before){
 
 async function dispatch(mode){
   if(busy) return;
-  const {repo, token} = cfg();
-  if(!repo || !token){
+  const repo = detectRepo();
+  const token = cfg().token;
+  if(!token){
     $("#setup").hidden = false;
-    setStatus("请先在设置里填写仓库和令牌。");
+    updateTokenState();
+    setStatus("还没有可用令牌：把令牌粘贴进输入框，点“保存并验证”，看到“令牌有效”后再搜索。");
     return;
   }
   setBusy(true);
@@ -295,7 +325,11 @@ async function dispatch(mode){
     setStatus("已提交，等待 GitHub 执行…");
     await pollRun(repo, before);
   }catch(e){
-    setStatus("提交失败：" + e.message);
+    const msg = String(e.message || e);
+    const hint = /403|404|Resource not accessible|Not Found/i.test(msg)
+      ? "。请确认令牌有本仓库 Actions 的 Read and write 权限，且仓库未被删除或改名"
+      : "";
+    setStatus("提交失败：" + msg + hint);
   }finally{
     setBusy(false);
   }
@@ -305,21 +339,30 @@ $("#btnSettings").onclick = () => {
   const open = $("#setup").hidden;
   $("#setup").hidden = !open;
   if(open){
-    $("#repo").value = cfg().repo;
     $("#token").value = "";
-    $("#token").placeholder = cfg().token ? "已保存，留空则不修改" : "github_pat_...";
+    updateTokenState();
   }
 };
-$("#btnSave").onclick = () => {
-  const repo = $("#repo").value.trim();
-  const token = $("#token").value.trim();
-  if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){ setStatus("仓库格式应为 owner/repo。"); return; }
-  localStorage.setItem("coupon_repo", repo);
-  if(token) localStorage.setItem("coupon_token", token);
-  setStatus(cfg().token ? "设置已保存。" : "仓库已保存，还缺令牌。", true);
+$("#btnSave").onclick = async () => {
+  const token = $("#token").value.replace(/\s+/g, "");
+  if(!token){
+    setStatus("输入框是空的。请先把令牌粘贴进去，再点“保存并验证”。");
+    return;
+  }
+  store.set("coupon_token", token);
+  updateTokenState();
+  setStatus(`令牌已保存（长度 ${token.length}），正在验证…`);
+  try{
+    const me = await gh("/user");
+    setStatus(`令牌有效，账号 ${me.login}。现在可以点上方搜索按钮。`, true);
+  }catch(e){
+    setStatus("令牌已保存，但验证失败：" + e.message + "。401 表示令牌无效或已撤销，403 表示权限不足。");
+  }
 };
 $("#btnClear").onclick = () => {
-  localStorage.removeItem("coupon_token");
+  store.remove("coupon_token");
+  $("#token").value = "";
+  updateTokenState();
   setStatus("已清除本机令牌。");
 };
 $("#btnAll").onclick = () => dispatch("all");
@@ -329,6 +372,7 @@ $("#btnReload").onclick = loadData;
 ["fStatus","fCat"].forEach(id => $("#"+id).addEventListener("change", render));
 $("#q").addEventListener("input", render);
 
+updateTokenState();
 loadData();
 </script>
 </body>
