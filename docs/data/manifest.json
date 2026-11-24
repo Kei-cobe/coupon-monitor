@@ -2,8 +2,8 @@
   "categories": {
     "delivery": {
       "label": "外卖券",
-      "updated_at": "2026-11-24T19:06:02+00:00",
-      "count": 0
+      "updated_at": "2026-11-24T19:17:22+00:00",
+      "count": 56
     },
     "groupbuy": {
       "label": "团购券",
@@ -31,6 +31,6 @@
       "count": 0
     }
   },
-  "history_count": 7,
-  "history_updated_at": "2026-11-24T19:06:02+00:00"
+  "history_count": 77,
+  "history_updated_at": "2026-11-24T19:17:22+00:00"
 }
