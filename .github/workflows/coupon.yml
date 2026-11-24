@@ -1,0 +1,50 @@
+name: 优惠搜索
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 搜索范围
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - coupons
+          - brands
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coupon-search
+  cancel-in-progress: false
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 执行搜索并导出
+        env:
+          BOCHA_API_KEY: ${{ secrets.BOCHA_API_KEY }}
+          MODE: ${{ inputs.mode }}
+        run: python coupon_monitor.py --once --force --mode "$MODE" --export docs/data/latest.json
+
+      - name: 提交结果
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data/latest.json
+          if git diff --cached --quiet; then
+            echo "数据没有变化"
+          else
+            git commit -m "chore: 更新优惠线索 $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi
