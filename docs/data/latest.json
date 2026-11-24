@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-24T16:36:42+00:00",
-  "count": 3,
+  "generated_at": "2026-11-24T18:43:58+00:00",
+  "count": 4,
   "items": [
     {
       "kind": "coupons",
@@ -22,10 +22,28 @@
     },
     {
       "kind": "coupons",
-      "target": "淘宝",
-      "title": "Taobao Singapore | 淘宝",
-      "summary": "- Taobao Singapore. 淘宝让您随心淘超值商品，为您提供流行服饰、美妆洗护、3C数码、大小家电、家俬家居、箱包皮具、运动户外、五金工具、玩具等千万件热销好货。 新人首单享官方直邮运费立减¥30，抓紧下单吧！",
-      "link": "https://sg.world.taobao.com/",
+      "target": "拼多多",
+      "title": "拼多多App下载",
+      "summary": "微信扫码免费领取拼多多店铺 联系我们 客服&举报电话：021-53395288 商家热线：021-5339-5088 商家客服服务时间：8:00-20:30 消费者客服服务时间：8:00-23:00 消费者客服外呼号码显示：9541366（仅呼出，不支持呼入） 上海寻梦信息技术有限公司 入驻多多国际 校园招聘 ...",
+      "link": "https://www.pinduoduo.com/home/download/",
+      "categories": [
+        "free"
+      ],
+      "amount": null,
+      "price": null,
+      "start_date": null,
+      "end_date": null,
+      "collab": "",
+      "source": "www.pinduoduo.com",
+      "status": "unknown",
+      "official": true
+    },
+    {
+      "kind": "coupons",
+      "target": "京东",
+      "title": "京东 - 又好又便宜",
+      "summary": "京东超市京东电器服饰美妆充值中心PLUS会员 京东生鲜京东国际司法拍卖红包惊喜全部 限时低价 去抢购 ¥24.9¥13.2¥25.9¥39.9¥22.55¥48.7¥14.9¥8.75¥1509¥1563 授权营销推广权限",
+      "link": "https://m.jd.com/",
       "categories": [
         "coupon"
       ],
@@ -34,7 +52,7 @@
       "start_date": null,
       "end_date": null,
       "collab": "",
-      "source": "sg.world.taobao.com",
+      "source": "m.jd.com",
       "status": "unknown",
       "official": true
     },
