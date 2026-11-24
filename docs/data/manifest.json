@@ -1,4 +1,11 @@
 {
-  "categories": {},
-  "history_count": 0
+  "categories": {
+    "delivery": {
+      "label": "外卖券",
+      "updated_at": "2026-11-24T19:02:01+00:00",
+      "count": 0
+    }
+  },
+  "history_count": 0,
+  "history_updated_at": "2026-11-24T19:02:01+00:00"
 }
